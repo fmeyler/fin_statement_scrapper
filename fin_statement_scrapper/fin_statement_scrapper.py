@@ -71,3 +71,27 @@ def fin_scrapper(url):
     return df
 
 df = fin_scrapper(url)
+
+
+
+#%%
+
+url = 'https://finance.yahoo.com/quote/AMZN/financials?p=AMZN'
+
+response = get(url)
+soup = BeautifulSoup(response.text, 'html.parser')
+
+dummy = pd.DataFrame()
+
+headers = []
+for container in soup.find('tbody').find_all('tr'):
+    data = []
+    for item in container.find_all('td'):
+        data.append(item.text)
+        temp_df = pd.DataFrame(data)
+    dummy = pd.concat([dummy,temp_df], axis = 1)
+
+dummy.columns = dummy.iloc[0]
+dummy = dummy.drop(0, axis = 0)
+
+trail =pd.DataFrame(headers)
