@@ -75,23 +75,70 @@ df = fin_scrapper(url)
 
 
 #%%
+def data_scrapper(symbol):
+    income_statement_url = 'https://finance.yahoo.com/quote/{}/financials?p={}'.format(symbol, symbol)
+    balance_sheet_url = 'https://finance.yahoo.com/quote/{}/balance-sheet?p={}'.format(symbol,symbol)
+    cash_flow_url = 'https://finance.yahoo.com/quote/{}/cash-flow?p={}'.format(symbol, symbol)
 
-url = 'https://finance.yahoo.com/quote/AMZN/financials?p=AMZN'
+    def url_scrapper(url):
+        url = url
+        
+        response = get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        dummy = pd.DataFrame()
+        
+        for container in soup.find('tbody').find_all('tr'):
+            data = []
+            for item in container.find_all('td'):
+                data.append(str(item.text).replace(',',""))
+                temp_df = pd.DataFrame(data)
+            dummy = pd.concat([dummy,temp_df], axis = 1)
+        
+        dummy.columns = dummy.iloc[0]
+        dummy = dummy.drop(0, axis = 0)
+        dummy.replace('-',np.nan, inplace = True)
+        dummy = dummy.dropna(axis = 1)
+        
+        columns = list(dummy.columns)
+        cols_to_change = columns[1:]
+        first_col = columns[0]
+        dummy[cols_to_change] = dummy[cols_to_change].astype(int)
+        dummy = dummy.rename(columns = {first_col:'Date'})
+        
+        return dummy
+    
+    fin_statement = url_scrapper(income_statement_url)
+    balance_sheet = url_scrapper(balance_sheet_url)
+    cash_flow = url_scrapper(cash_flow_url)
+    
+    df = pd.concat([fin_statement,balance_sheet,cash_flow],axis = 1)
+    df = df.loc[:,~df.columns.duplicated()]
+    
+    return df
 
-response = get(url)
-soup = BeautifulSoup(response.text, 'html.parser')
+trail_df = data_scrapper(symbol= 'AMZN')
 
-dummy = pd.DataFrame()
+trail_df2 = trail_df.transpose().reset_index()
+trail_df2.columns = trail_df2.iloc[0]
+trail_df2.drop(0,axis = 0, inplace = True)
+trail_df2.columns = [str(x)[-4:] for x in trail_df2.columns]
+trail_df2[trail_df2.columns[1:]] = trail_df2[trail_df2.columns[1:]].astype(int)
 
-headers = []
-for container in soup.find('tbody').find_all('tr'):
-    data = []
-    for item in container.find_all('td'):
-        data.append(item.text)
-        temp_df = pd.DataFrame(data)
-    dummy = pd.concat([dummy,temp_df], axis = 1)
+df = data_scrapper('https://finance.yahoo.com/quote/AMZN/financials?p=AMZN')
+df2 = data_scrapper('https://finance.yahoo.com/quote/AMZN/balance-sheet?p=AMZN')
 
-dummy.columns = dummy.iloc[0]
-dummy = dummy.drop(0, axis = 0)
 
-trail =pd.DataFrame(headers)
+dummy.dtypes
+dummy['Profit_Margin'] = dummy['Net Income']/dummy['Total Revenue']
+
+
+url2 = 'https://finance.yahoo.com/quote/AMZN/balance-sheet?p=AMZN'
+
+columns = list(df.columns)
+columns[1:]
+df = df.rename(columns = {'Revenue':'Date'})
+df2 = df2.rename(columns = {'Period Ending':'Date'})
+
+df3 = pd.concat([df,df2],axis = 1)
+df3 = df3.loc[:,~df3.columns.duplicated()]
