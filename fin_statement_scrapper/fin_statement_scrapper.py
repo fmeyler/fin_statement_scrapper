@@ -18,7 +18,7 @@ import numpy as np
 
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
-
+url = 'https://www.macrotrends.net/stocks/charts/ACB/aurora-cannabis/financial-ratios'
 
 url = 'https://finance.yahoo.com/quote/AMZN/history?period1=1270357200&period2=1554354000&interval=1d&filter=history&frequency=1d'
 
@@ -168,7 +168,7 @@ def fin_ratios_scrapper(url, current_year):
     ending_year = latest_year - 14
     
     # Initiate browser
-    browser = webdriver.Firefox(executable_path=r'/Users/fr3d/Downloads/geckodriver')
+    #browser = webdriver.Firefox(executable_path=r'/Users/fr3d/Downloads/geckodriver')
     
     # Go to url
     browser.get(url)
@@ -238,7 +238,78 @@ print(end-start)
 
 df.to_excel('amazon_data.xls', index = False)
 
+
+
 #%%
 
-import matplotlib.pyplot as plt
-plt.plot(df.loc['ROE - Return On Equity',:])
+def get_tickers(exchange):
+    
+    exchange_name = exchange.upper()
+    
+    # Get a list of all alphabets
+    alphabets = [chr(i).upper() for i in range(ord('a'),ord('z')+1)]
+    
+    ticker_df = pd.DataFrame()
+    
+    # Loop over each page to extract ticker and company name
+    for letter in alphabets:
+        url = 'http://eoddata.com/symbols/{}/{}.htm'.format(exchange_name, letter)
+    
+        response = get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        ticker_and_names = []
+        headers = []
+        
+        # Get a list of headers
+        for title in soup.find('div', class_='cb').find('table', class_='quotes').find('tr').find_all('th'): 
+            headers.append(title.text)
+        
+        # Get all tickers and company names from page  
+        for interim_soup in soup.find('div', class_= 'cb').find_all('tr'):
+            temp_container = []
+            for tag in interim_soup.find_all('td'):
+                temp_container.append(tag.text)
+            ticker_and_names.append(temp_container[:2])
+        
+        temp_ticker_df = pd.DataFrame(ticker_and_names, columns = headers[:2]) 
+        ticker_df = ticker_df.append(temp_ticker_df)
+    ticker_df.dropna(inplace = True)
+    
+    return ticker_df
+    
+#%%
+    
+def all_companies(list_of_tickers):
+    
+    browser = webdriver.Firefox(executable_path=r'/Users/fr3d/Downloads/geckodriver')
+    
+    for ticker in list_of_tickers[:2]:
+        ticker_df = fin_ratios_scrapper()
+        
+
+
+
+
+
+
+browser.get(url)
+
+time.sleep(3)
+
+# click anyhere to hide ads
+search_field = browser.find_element_by_xpath('//*[@id="jqxInput"]')
+search_field.send_keys('AMZN ')
+search_field.send_keys(Keys.ENTER)
+
+action = ActionChains(browser)
+action.click()
+action.perform()
+
+# Scrap the initial visible pages
+source_data = browser.page_source
+page_soup = BeautifulSoup(source_data)
+
+
+//*[@id="jqxInput"]
+
