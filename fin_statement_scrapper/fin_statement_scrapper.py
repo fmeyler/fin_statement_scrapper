@@ -46,7 +46,7 @@ def fin_scrapper(url):
     
     # Now that the page is fully scrolled, grab the source code.
     source_data = browser.page_source
-    
+
     # Throw your source into BeautifulSoup and start parsing!
     page_soup = BeautifulSoup(source_data)
     
@@ -113,32 +113,132 @@ def data_scrapper(symbol):
     cash_flow = url_scrapper(cash_flow_url)
     
     df = pd.concat([fin_statement,balance_sheet,cash_flow],axis = 1)
+    df = df.transpose()
     df = df.loc[:,~df.columns.duplicated()]
     
     return df
 
-trail_df = data_scrapper(symbol= 'AMZN')
-
-trail_df2 = trail_df.transpose().reset_index()
-trail_df2.columns = trail_df2.iloc[0]
-trail_df2.drop(0,axis = 0, inplace = True)
-trail_df2.columns = [str(x)[-4:] for x in trail_df2.columns]
-trail_df2[trail_df2.columns[1:]] = trail_df2[trail_df2.columns[1:]].astype(int)
-
-df = data_scrapper('https://finance.yahoo.com/quote/AMZN/financials?p=AMZN')
-df2 = data_scrapper('https://finance.yahoo.com/quote/AMZN/balance-sheet?p=AMZN')
+df.columns = df.iloc[0,:]
+df.drop('Date', axis = 0, inplace = True)
 
 
-dummy.dtypes
-dummy['Profit_Margin'] = dummy['Net Income']/dummy['Total Revenue']
+df.iloc[0,:]
+
+def fin_ratios(df):
+    
+    #Net Profit margin
+    df['Profit_Margin'] = df['Net Income']/df['Total Revenue']
+    
+    #ROE
+    df['SE_lag'] = df['Total Stockholder Equity'].shift(-1).fillna(df['Total Stockholder Equity'])
+    df['ROE'] = df['Net Income']/((df['Total Stockholder Equity'] + df['SE_lag'])/2)
+    df.drop('SE_lag', axis = 1, inplace = True)
+    
+    #ROA
+    df['TA_lag'] = df['Total Assets'].shift(-1).fillna(df['Total Assets'])
+    df['ROA'] = df['Net Income']/((df['Total Assets'] + df['TA_lag'])/2)
+    df.drop('TA_lag',axis = 1, inplace = True)
+    
+    #Financial Leverage
+    df['Financial Leverage'] = df['ROE'] - df['ROA']
+    
+    #Earning Quality
+    df['Earning Quality'] = df['Total Cash Flow From Operating Activities']/ df['Net Income']
+    
+    return df
+ 
+    
+
+#%%
+from selenium.webdriver.common.action_chains import ActionChains
+import time
+
+browser = webdriver.Firefox(executable_path=r'/Users/fr3d/Downloads/geckodriver')
+browser.get(url)
+source_data = browser.page_source
+page_soup = BeautifulSoup(source_data)
+
+url = 'https://www.macrotrends.net/stocks/charts/AMZN/amazon/financial-ratios'
+
+#%%
+
+def fin_ratios_scrapper(url, current_year):
+    
+    latest_year = int(current_year)
+    ending_year = latest_year - 14
+    
+    # Initiate browser
+    browser = webdriver.Firefox(executable_path=r'/Users/fr3d/Downloads/geckodriver')
+    
+    # Go to url
+    browser.get(url)
+    
+    time.sleep(3)
+    
+    # click anyhere to hide ads
+    scroll_tab = browser.find_element_by_xpath('.//*[@id="jqxScrollThumbhorizontalScrollBarjqxgrid"]')
+    action = ActionChains(browser)
+    action.click()
+    action.perform()
+    
+    # Scrap the initial visible pages
+    source_data = browser.page_source
+    page_soup = BeautifulSoup(source_data)
+    
+    # Get ratio names
+    ratio_titles = []
+    for tag in page_soup.find_all('div', class_='jqx-grid-cell jqx-item jqx-grid-cell-pinned'):
+        ratio_titles.append(tag.text)
+    ratio_titles = list(filter(None, ratio_titles))
+    
+    # Iterate over row tags and get all data
+    ratios = []
+    for number in range(0,20):
+        temp_ratios = []
+        for tag in page_soup.find('div',{'id':'row{}jqxgrid'.format(number)}).find_all('div',class_='jqx-grid-cell jqx-item'):
+            temp_ratios.append(tag.text)
+        # drop the last two elements in the list. This will prevent duplicates when page is horizontally    
+        #scrolled
+        
+        ratios.append(temp_ratios[:-2])
+    
+    time.sleep(3)
+    
+    # Click page to remove pop-up ads    
+    action.click()
+    action.perform()
+    
+    # Scroll table to the right to expose data
+    action.drag_and_drop_by_offset(scroll_tab,500,0).perform()
+    
+    # Get new bs results
+    source_data = browser.page_source
+    page_soup = BeautifulSoup(source_data)
+    
+    ratios2 = []
+    for number in range(0,20):
+        temp_ratios = []
+        for tag in page_soup.find('div',{'id':'row{}jqxgrid'.format(number)}).find_all('div',class_='jqx-grid-cell jqx-item'):
+            temp_ratios.append(tag.text)
+        ratios2.append(temp_ratios)
+        
+    all_ratios = [a + b for a,b in zip(ratios,ratios2)]
+    column_name = list(reversed(range(ending_year, latest_year)))
+    
+    df = pd.DataFrame(all_ratios, columns = column_name, index = ratio_titles)
+    return df
 
 
-url2 = 'https://finance.yahoo.com/quote/AMZN/balance-sheet?p=AMZN'
+#%%
+start = time.time()
+df = fin_ratios_scrapper(url, current_year = 2019)
+end = time.time()
 
-columns = list(df.columns)
-columns[1:]
-df = df.rename(columns = {'Revenue':'Date'})
-df2 = df2.rename(columns = {'Period Ending':'Date'})
+print(end-start)
 
-df3 = pd.concat([df,df2],axis = 1)
-df3 = df3.loc[:,~df3.columns.duplicated()]
+df.to_excel('amazon_data.xls', index = False)
+
+#%%
+
+import matplotlib.pyplot as plt
+plt.plot(df.loc['ROE - Return On Equity',:])
