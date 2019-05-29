@@ -18,6 +18,7 @@ import numpy as np
 
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+
 url = 'https://www.macrotrends.net/stocks/charts/ACB/aurora-cannabis/financial-ratios'
 
 url = 'https://finance.yahoo.com/quote/AMZN/history?period1=1270357200&period2=1554354000&interval=1d&filter=history&frequency=1d'
@@ -162,21 +163,43 @@ url = 'https://www.macrotrends.net/stocks/charts/AMZN/amazon/financial-ratios'
 
 #%%
 
-def fin_ratios_scrapper(url, current_year):
-    
-    latest_year = int(current_year)
-    ending_year = latest_year - 14
-    
+def fin_ratios_scrapper(ticker):
     # Initiate browser
-    #browser = webdriver.Firefox(executable_path=r'/Users/fr3d/Downloads/geckodriver')
+    browser = webdriver.Firefox(executable_path=r'/Users/fr3d/Downloads/geckodriver')
+    
+    # Base url
+    base_url = 'https://www.macrotrends.net/stocks/charts/AMZN/amazon/financial-ratios'
     
     # Go to url
-    browser.get(url)
+    browser.get(base_url)
     
-    time.sleep(3)
+    action = ActionChains(browser)
+    action.click()
+    action.perform()
     
+    # Enter symbol in search box
+    search_field = browser.find_element_by_css_selector('#jqxInput')
+    search_field.send_keys(ticker+ ' ')
+    time.sleep(.5)
+    search_field.send_keys(Keys.DOWN)
+    search_field.send_keys(Keys.ENTER)
+    
+    time.sleep(1)
+    action.click()
+    action.perform()
+    
+    # Find the lenght of years of financial ratios
+    source_data = browser.page_source
+    page_soup = BeautifulSoup(source_data)
+    
+    year_range = [x for x in str(page_soup.find('h2').text).replace('-',' ').split() if x.isdigit()]
+    beginning_year = int(year_range[0])
+    end_year = int(year_range[1])
+    
+    number_of_years = len(range(beginning_year, end_year))
+    print(number_of_years)
+        
     # click anyhere to hide ads
-    scroll_tab = browser.find_element_by_xpath('.//*[@id="jqxScrollThumbhorizontalScrollBarjqxgrid"]')
     action = ActionChains(browser)
     action.click()
     action.perform()
@@ -202,36 +225,42 @@ def fin_ratios_scrapper(url, current_year):
         
         ratios.append(temp_ratios[:-2])
     
-    time.sleep(3)
+    time.sleep(2)
     
     # Click page to remove pop-up ads    
     action.click()
     action.perform()
     
-    # Scroll table to the right to expose data
-    action.drag_and_drop_by_offset(scroll_tab,500,0).perform()
+    scroll_tab = browser.find_elements_by_css_selector('#jqxScrollThumbhorizontalScrollBarjqxgrid')
+
     
-    # Get new bs results
-    source_data = browser.page_source
-    page_soup = BeautifulSoup(source_data)
-    
-    ratios2 = []
-    for number in range(0,20):
-        temp_ratios = []
-        for tag in page_soup.find('div',{'id':'row{}jqxgrid'.format(number)}).find_all('div',class_='jqx-grid-cell jqx-item'):
-            temp_ratios.append(tag.text)
-        ratios2.append(temp_ratios)
+    if number_of_years > 6:
+        
+        # Scroll table to the right to expose data
+        action.drag_and_drop_by_offset(scroll_tab,500,0).perform()
+        
+        # Get new bs results
+        source_data = browser.page_source
+        page_soup = BeautifulSoup(source_data)
+        
+        ratios2 = []
+        for number in range(0,20):
+            temp_ratios = []
+            for tag in page_soup.find('div',{'id':'row{}jqxgrid'.format(number)}).find_all('div',class_='jqx-grid-cell jqx-item'):
+                temp_ratios.append(tag.text)
+            ratios2.append(temp_ratios)
+    else:
+        ratio2 = []
         
     all_ratios = [a + b for a,b in zip(ratios,ratios2)]
-    column_name = list(reversed(range(ending_year, latest_year)))
+    column_name = list(reversed(range(beginning_year, end_year)))
     
     df = pd.DataFrame(all_ratios, columns = column_name, index = ratio_titles)
     return df
 
-
 #%%
 start = time.time()
-df = fin_ratios_scrapper(url, current_year = 2019)
+df = fin_ratios_scrapper(ticker = 'BAC')
 end = time.time()
 
 print(end-start)
@@ -239,6 +268,7 @@ print(end-start)
 df.to_excel('amazon_data.xls', index = False)
 
 
+text = [x for x in str(page_soup.find('h2').text).replace('-',' ').split() if x.isdigit()]
 
 #%%
 
