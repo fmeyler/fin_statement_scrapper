@@ -15,6 +15,8 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 
+x = [1,2,3,4,5,6]
+pd.Series(x).hist()
 
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
@@ -28,6 +30,7 @@ def fin_scrapper(url):
     
     #set browser
     browser = webdriver.Firefox(executable_path=r'/Users/fr3d/Downloads/geckodriver')
+    browser =  webdriver.Firefox()
     
     # Tell Selenium to get the URL you're interested in.
     browser.get(url)
@@ -155,6 +158,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 import time
 
 browser = webdriver.Firefox(executable_path=r'/Users/fr3d/Downloads/geckodriver')
+browser = webdriver.Chrome()
 browser.get(url)
 source_data = browser.page_source
 page_soup = BeautifulSoup(source_data)
@@ -165,7 +169,7 @@ url = 'https://www.macrotrends.net/stocks/charts/AMZN/amazon/financial-ratios'
 
 def fin_ratios_scrapper(ticker):
     # Initiate browser
-    browser = webdriver.Firefox(executable_path=r'/Users/fr3d/Downloads/geckodriver')
+    browser = webdriver.Chrome()
     
     # Base url
     base_url = 'https://www.macrotrends.net/stocks/charts/AMZN/amazon/financial-ratios'
@@ -343,3 +347,11 @@ page_soup = BeautifulSoup(source_data)
 
 //*[@id="jqxInput"]
 
+
+
+
+
+
+
+tag = soup.find('div').find('a')
+tag['href']
