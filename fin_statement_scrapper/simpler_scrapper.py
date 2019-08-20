@@ -160,7 +160,70 @@ def all_companies(list_of_tickers):
         ticker_df = fin_ratios_scrapper(ticker)
         ticker_df['ticker'] = ticker
         final_df = final_df.append(ticker_df)
+        time.sleep(3)
     return final_df
         
     
 list_of_tickers = ['AMZN','BAC']  
+
+
+
+
+
+
+browser.get('https://www.macrotrends.net/stocks/stock-screener')
+
+links = []
+temp_soup = page_soup.find_all('table')
+temp_soup
+for link in page_soup.find_all('div', id = 'jqxGrid').find('a'):
+    links.append(link['href'])
+
+page_soup.find_all('a')
+
+temp_soup
+
+page_soup.find_all('a')
+
+
+def get_ticker_links():
+    url = 'https://www.macrotrends.net/stocks/stock-screener'
+    browser = webdriver.Chrome()
+    browser.get(url)
+    page_data = browser.execute_script('return originalData')
+    
+    data_size = len(page_data)
+    links = []
+    tickers = []
+    for i in range(0,data_size):
+        temp_link = page_data[i]['name_link']
+        tickers.append(page_data[i]['ticker'])
+        temp_link = temp_link.split("href=\'")[1].split("'")[0]
+        temp_link = temp_link.split('/')
+        temp_link[-1] = 'financial-ratios'
+        temp_link = '/'.join(temp_link)
+        link = 'https://www.macrotrends.net' + temp_link
+        links.append(link)
+        
+    df = pd.DataFrame()
+    for link in links[:2]:
+        browser.get(link)
+        page_data = browser.execute_script('return originalData')
+        data_size = len(page_data)
+        for i in range(0,data_size):
+            temp_data = page_data[i]
+            date = [*temp_data.keys()][:-1]
+            date = [x.split('-')[0] for x in date]
+            values = [*temp_data.values()][:-1]
+            values[-1] = values[-1].split('>')[1].split('<')[0]
+            temp_df = pd.DataFrame(values).T
+            temp_df.columns = date
+            temp_df['Ticker'] = tickers[links.index(link)]
+            df = df.append(temp_df)
+        
+    return df
+    
+
+    
+    
+    
